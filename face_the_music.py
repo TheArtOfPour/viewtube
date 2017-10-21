@@ -7,6 +7,13 @@ import subprocess
 import numpy as np
 from random import randint
 
+scale = 1.1
+imFlag = cv2.CASCADE_SCALE_IMAGE #cv2.cv.CV_HAAR_SCALE_IMAGE
+minSize = 40
+minNeighbors = 10
+
+sentimental = True
+emotions = ["neutral", "anger", "happy"]
 loopsBeforeChange = 20
 font = cv2.FONT_HERSHEY_SIMPLEX
 videos = ["lX6JcybgDFo", "eBvm4FZF8L4", "7ZQLX4F_0Eg", "sUtS52lqL5w",
@@ -24,6 +31,16 @@ def closeVideo():
 cascDir = "/home/nvidia/opencv-2.4.9/data/haarcascades/"
 cascPath = cascDir + "haarcascade_frontalface_default.xml"
 faceCascade = cv2.CascadeClassifier(cascPath)
+
+cascPath = cascDir + "haarcascade_frontalface_alt.xml"
+faceCascade2 = cv2.CascadeClassifier(cascPath)
+
+cascPath = cascDir + "haarcascade_frontalface_alt2.xml"
+faceCascade3 = cv2.CascadeClassifier(cascPath)
+
+cascPath = cascDir + "haarcascade_frontalface_alt_tree.xml"
+faceCascade4 = cv2.CascadeClassifier(cascPath)
+
 video_capture = cv2.VideoCapture(0)
 loopsWithoutFace = 0
 videoIndex = randint(0, len(videos)-1)
@@ -35,18 +52,24 @@ highScoreVideo = ""
 xFace = 5
 yFace = 80
 openVideo(videoIndex)
+#time.sleep(5)
+if sentimental:
+    fishface = cv2.createFisherFaceRecognizer()
+    fishface.load("fishface.yml")
 
 while True:
     newHighScore = False
     ret, frame = video_capture.read()
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces = faceCascade.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=5,
-            minSize=(30, 30),
-            flags=cv2.cv.CV_HAAR_SCALE_IMAGE
-        )
+       
+    faces = faceCascade.detectMultiScale(gray, scaleFactor=scale, minNeighbors=minNeighbors, minSize=(minSize, minSize), flags=imFlag)
+    if len(faces) == 0:
+        faces = faceCascade2.detectMultiScale(gray, scaleFactor=scale, minNeighbors=minNeighbors, minSize=(minSize, minSize), flags=imFlag)
+        if len(faces) == 0:
+            faces = faceCascade3.detectMultiScale(gray, scaleFactor=scale, minNeighbors=minNeighbors, minSize=(minSize, minSize), flags=imFlag)
+            if len(faces) == 0:
+               faces = faceCascade4.detectMultiScale(gray, scaleFactor=scale, minNeighbors=minNeighbors, minSize=(minSize, minSize), flags=imFlag)
+
     if len(faces) == 0:
         score = 0
         if loopsWithoutFace < loopsBeforeChange:
@@ -78,6 +101,15 @@ while True:
     for (x, y, w, h) in faces:
         if newHighScore:
             highScoreFace = frame[y:y+h, x:x+w]
+        if sentimental:
+            img = frame[y:y+h, x:x+w]
+            #image = cv2.imread(img)
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            res = cv2.resize(gray,(350, 350))
+            pred, conf = fishface.predict(res)
+            cv2.putText(frame, emotions[pred] + " " + str(conf), (x+w+5, y-25), font, 0.8, color, 2, cv2.CV_AA)
+            #print(emotions[pred])
+            #print(conf)
         cv2.rectangle(frame, (x, y), (x+w, y+h), color, 2)
         cv2.putText(frame, str(score), (x+w+5, y-5), font, 0.8, color, 2, cv2.CV_AA)    
     # Text
